@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: delta-cardkey
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /ping
+    autoDeploy: true
+    envVars:
+      - key: DELTA_API_TOKEN
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PORT
+        value: "8000"

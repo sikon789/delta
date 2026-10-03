@@ -1,0 +1,8 @@
+requests>=2.28
+urllib3>=1.26
+pycryptodome>=3.15
+fake-useragent>=1.5
+fastapi>=0.100
+uvicorn>=0.23
+httptools>=0.6
+orjson>=3.9

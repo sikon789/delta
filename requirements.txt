@@ -1,0 +1,15 @@
+requests>=2.28
+urllib3>=1.26
+pycryptodome>=3.15
+
+# 可选：随机 User-Agent 池。缺失时自动退回固定 UA，不影响功能。
+fake-useragent>=1.5
+
+# --- HTTP API ---
+fastapi>=0.100
+uvicorn>=0.23
+
+# --- 可选性能加速：缺失自动降级，不影响功能 ---
+uvloop>=0.19; sys_platform != "win32"
+httptools>=0.6
+orjson>=3.9
