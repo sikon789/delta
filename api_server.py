@@ -58,6 +58,25 @@ MSG_START = (
 MSG_FOOTER = "by司空"
 MSG_OK = "卡密 [卡密]"
 MSG_FAIL = "解密失败"
+MSG_TIME = "获取卡密耗时 {t} 秒"     # {t} 会被替换成实际秒数
+
+# 链接校验:域名后缀
+ALLOW_SUFFIX = "platorelay.com"
+
+
+def is_card_link(url):
+    """域名必须是 platorelay.com 或 xxx.platorelay.com"""
+    if not url or len(url) > MAX_URL_LENGTH:
+        return False
+    low = url.lower()
+    if not low.startswith("https://"):
+        return False
+    after = low.index("://") + 3
+    slash = low.find("/", after)
+    host = low[after:] if slash < 0 else low[after:slash]
+    if ":" in host:
+        host = host.split(":")[0]
+    return host == ALLOW_SUFFIX or host.endswith("." + ALLOW_SUFFIX)
 
 app = FastAPI(title="Delta Cardkey", default_response_class=JSONResponse)
 
@@ -228,6 +247,7 @@ async def proxy(request: Request, q: str = "", l: str = "", a: str = ""):
             "c": MSG_OK,
             "d": MSG_FAIL,
             "e": "0",
+            "f": MSG_TIME,           # 耗时模板,{t} 替换成秒数
         }
 
     # 解卡
@@ -240,6 +260,9 @@ async def proxy(request: Request, q: str = "", l: str = "", a: str = ""):
         return JSONResponse({"ok": False, "e": "缺少链接"}, status_code=400)
     if len(l) > MAX_URL_LENGTH:
         return JSONResponse({"ok": False, "e": "链接过长"}, status_code=413)
+    if not is_card_link(l):
+        log_access(q, "badlink", l[:60])
+        return {"ok": False, "e": "不是有效的卡密链接"}
 
     started = time.time()
     try:
@@ -253,7 +276,7 @@ async def proxy(request: Request, q: str = "", l: str = "", a: str = ""):
     cached = _cache_get(ticket)
     if cached:
         log_access(q, "cached", "")
-        return {"ok": True, "k": cached}
+        return {"ok": True, "k": cached, "t": "0.00"}
 
     task_id = uuid.uuid4().hex
     with _lock:
@@ -266,13 +289,14 @@ async def proxy(request: Request, q: str = "", l: str = "", a: str = ""):
     with _lock:
         t = dict(_tasks.get(task_id, {}))
 
+    elapsed = time.time() - started
     if t.get("key"):
-        log_access(q, "solve", "ok cost=%.2fs" % (time.time() - started))
-        return {"ok": True, "k": t["key"]}
+        log_access(q, "solve", "ok cost=%.2fs" % elapsed)
+        return {"ok": True, "k": t["key"], "t": "%.2f" % elapsed}
 
     err = t.get("error") or MSG_FAIL
-    log_access(q, "solve", "fail %s" % err)
-    return {"ok": False, "e": err}
+    log_access(q, "solve", "fail %s cost=%.2fs" % (err, elapsed))
+    return {"ok": False, "e": err, "t": "%.2f" % elapsed}
 
 
 # ============ 原始接口(带 token,给你自己用) ============
