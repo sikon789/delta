@@ -60,12 +60,26 @@ MSG_OK = "卡密 [卡密]"
 MSG_FAIL = "解密失败"
 MSG_TIME = "获取卡密耗时 {t} 秒"     # {t} 会被替换成实际秒数
 
-# 链接校验:域名后缀
+# 链接校验
 ALLOW_SUFFIX = "platorelay.com"
+TICKET_MIN = 100     # ticket 最小长度(真链接约 499,防「?d=」空链接刷屏)
+
+
+def _get_param(url, name):
+    q = url.find("?")
+    if q < 0:
+        return None
+    for part in url[q + 1:].split("&"):
+        if "=" not in part:
+            continue
+        k, v = part.split("=", 1)
+        if k.lower() == name.lower():
+            return v
+    return None
 
 
 def is_card_link(url):
-    """域名必须是 platorelay.com 或 xxx.platorelay.com"""
+    """域名必须是 platorelay.com 或 xxx.platorelay.com,且 ticket 够长"""
     if not url or len(url) > MAX_URL_LENGTH:
         return False
     low = url.lower()
@@ -76,7 +90,12 @@ def is_card_link(url):
     host = low[after:] if slash < 0 else low[after:slash]
     if ":" in host:
         host = host.split(":")[0]
-    return host == ALLOW_SUFFIX or host.endswith("." + ALLOW_SUFFIX)
+    if not (host == ALLOW_SUFFIX or host.endswith("." + ALLOW_SUFFIX)):
+        return False
+    ticket = _get_param(url, "d") or _get_param(url, "ticket")
+    if not ticket or len(ticket) < TICKET_MIN:
+        return False
+    return True
 
 app = FastAPI(title="Delta Cardkey", default_response_class=JSONResponse)
 
